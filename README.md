@@ -39,3 +39,14 @@ Host: 127.0.0.1:8080
 }
 
 ```
+Response
+
+```json
+{
+	"id": "7d7e2f30-60bf-415c-836c-1137256965d9",
+	"name": "python_kubernetes",
+	"last_activity": "2024-02-29T06:37:19.189801Z",
+	"execution_state": "starting",
+	"connections": 0
+}
+```
