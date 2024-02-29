@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"zjuici.com/tablegpt/jpkmanager/src/common"
-	"zjuici.com/tablegpt/jpkmanager/src/models"
-	"zjuici.com/tablegpt/jpkmanager/src/storage"
+	"zjuici.com/tablegpt/jkpmanager/src/common"
+	"zjuici.com/tablegpt/jkpmanager/src/models"
+	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
 func PopKernelHandler(cfg *models.Config, httpClient *common.HTTPClient, redisClient *storage.RedisClient) http.HandlerFunc {

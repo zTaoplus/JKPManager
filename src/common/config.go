@@ -5,11 +5,11 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
-	"zjuici.com/tablegpt/jpkmanager/src/models"
+	"zjuici.com/tablegpt/jkpmanager/src/models"
 )
 
 func InitConfig() (*models.Config, error) {
-	viper.SetEnvPrefix("JPK")
+	viper.SetEnvPrefix("JKP")
 	viper.AutomaticEnv()
 
 	viper.SetDefault("EG_ENDPOINT", "http://127.0.0.1:8888")

@@ -5,14 +5,14 @@ WORKDIR /app
 
 COPY . .
 
-RUN go build -o jpkmanager ./src
+RUN go build -o jkpmanager ./src
 
 
 FROM ubuntu:22.04
 
 WORKDIR /root/
 
-COPY --from=builder /app/jpkmanager .
+COPY --from=builder /app/jkpmanager .
 
 
-CMD ["./jpkmanager"]
+CMD ["./jkpmanager"]

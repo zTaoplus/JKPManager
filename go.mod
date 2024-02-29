@@ -1,4 +1,4 @@
-module zjuici.com/tablegpt/jpkmanager
+module zjuici.com/tablegpt/jkpmanager
 
 go 1.22.0
 

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"log"
 
-	"zjuici.com/tablegpt/jpkmanager/src/models"
+	"zjuici.com/tablegpt/jkpmanager/src/models"
 )
 
 func InfoRequestResult(result []byte, idleCount *int) bool {

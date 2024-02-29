@@ -5,7 +5,7 @@ namespace: kubeflow-zt
 
 labels:
   - pairs:
-      app.kubernetes.io/name: jpk
+      app.kubernetes.io/name: jkp
       app.kubernetes.io/managed-by: kubectl
     includeSelectors: false
 
@@ -13,12 +13,12 @@ resources:
   - ksvc.yaml
 
 configMapGenerator:
-  - name: jpk-manager-cm
+  - name: jkp-manager-cm
     envs:
       - .env
 generatorOptions:
   disableNameSuffixHash: true
 
 images:
-  - name: ztaoplus/jpkmanager
+  - name: ztaoplus/jkpmanager
     newTag: test

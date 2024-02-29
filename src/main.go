@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"zjuici.com/tablegpt/jpkmanager/src/common"
-	"zjuici.com/tablegpt/jpkmanager/src/controllers"
-	"zjuici.com/tablegpt/jpkmanager/src/storage"
+	"zjuici.com/tablegpt/jkpmanager/src/common"
+	"zjuici.com/tablegpt/jkpmanager/src/controllers"
+	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
 func main() {

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"zjuici.com/tablegpt/jpkmanager/src/models"
-	"zjuici.com/tablegpt/jpkmanager/src/storage"
+	"zjuici.com/tablegpt/jkpmanager/src/models"
+	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
 // 定时任务 间隔20分钟 激活一次所有连接

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"zjuici.com/tablegpt/jpkmanager/src/models"
-	"zjuici.com/tablegpt/jpkmanager/src/storage"
+	"zjuici.com/tablegpt/jkpmanager/src/models"
+	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
 func StartKernels(cfg *models.Config, httpClient *HTTPClient, redisClient *storage.RedisClient, needCreateKernelCount int) {
