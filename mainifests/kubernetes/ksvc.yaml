@@ -1,0 +1,33 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: jpk
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "5"
+        autoscaling.knative.dev/minScale: "1"
+    spec:
+      containers:
+        - name: user-container
+          image: ztaoplus/jpkmanager:dummy
+          envFrom:
+          - configMapRef:
+              name: jpk-manager-cm
+          ports:
+            - containerPort: 8080
+              name: http1
+              protocol: TCP
+          readinessProbe:
+            successThreshold: 1
+            tcpSocket:
+              port: 0
+          resources:
+            limits:
+              cpu: "2"
+              memory: 8Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
