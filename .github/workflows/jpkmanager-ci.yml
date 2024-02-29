@@ -1,0 +1,33 @@
+name: JPKManger CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/jpkmanager-ci.yml"
+      - "src/**"
+  pull_request:
+    types:
+      - opened
+      - synchronize
+    paths:
+      - ".github/workflows/jpkmanager-ci.yml"
+      - "src/**"
+  workflow_dispatch: # Allows to trigger the workflow manually in GitHub UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.22
+
+      - name: Build
+        run: go build -o /dev/null ./src
+
+      - name: Test
+        run: go test -v ./src/
