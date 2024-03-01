@@ -30,13 +30,13 @@ func main() {
 	// init kernel
 
 	// if needCreateKernelCount
-	storedKernels, err := redisClient.LRange(cfg.RedisKey, 0, -1)
+	storedKernelsLen, err := redisClient.LLen(cfg.RedisKey)
 	if err != nil {
 		panic(err)
 	}
 
-	needCreateKernelCount := cfg.MaxPendingKernels - len(storedKernels)
-	log.Printf("Existing Pending Kernel Count: %v, needCreateKernelCount: %v", len(storedKernels), needCreateKernelCount)
+	needCreateKernelCount := cfg.MaxPendingKernels - int(storedKernelsLen)
+	log.Printf("Existing Pending Kernel Count: %v, needCreateKernelCount: %v", storedKernelsLen, needCreateKernelCount)
 	common.StartKernels(cfg, httpClient, redisClient, needCreateKernelCount)
 
 	// 启动web监听
@@ -55,7 +55,7 @@ func main() {
 
 		// task
 		for range ticker.C {
-			log.Println("原神！ 启动！")
+			log.Println("Scheduled task starting!")
 			common.KernelActivateTask(cfg, redisClient)
 		}
 	}()

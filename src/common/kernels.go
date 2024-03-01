@@ -13,8 +13,6 @@ import (
 
 func StartKernels(cfg *models.Config, httpClient *HTTPClient, redisClient *storage.RedisClient, needCreateKernelCount int) {
 
-	// needCreateKernelCount := cfg.MaxPendingKernels - len(storedKernels)
-
 	kernelVolumeMounts, err := json.Marshal([]map[string]string{
 		{
 			"name":      "shared-vol",
@@ -103,6 +101,9 @@ func createKernel(cfg *models.Config, httpClient *HTTPClient, redisClient *stora
 		panic("Cannot Marshal kernelInfo!!!")
 	}
 
-	redisClient.LPush(cfg.RedisKey, string(kernelJSON))
+	err = redisClient.LPush(cfg.RedisKey, string(kernelJSON))
+	if err != nil {
+		panic("Cannot LPush kernelInfo!!!")
+	}
 
 }

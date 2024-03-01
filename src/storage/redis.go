@@ -2,6 +2,8 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/go-redis/redis"
 )
 
@@ -27,8 +29,16 @@ func (r *RedisClient) Get(key string) (string, error) {
 	return r.Client.Get(key).Result()
 }
 
+func (r *RedisClient) LLen(key string) (int64, error) {
+	return r.Client.LLen(key).Result()
+}
+
 func (r *RedisClient) LPush(key string, value string) error {
 	return r.Client.LPush(key, value).Err()
+}
+
+func (r *RedisClient) BRPop(key string) ([]string, error) {
+	return r.Client.BRPop(5*time.Second, key).Result()
 }
 
 func (r *RedisClient) RPop(key string) (string, error) {

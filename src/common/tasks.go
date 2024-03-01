@@ -46,7 +46,6 @@ func kernelActivator(egWsEndpoint string, kernel *models.KernelInfo, wg *sync.Wa
 
 // got values from redis
 func KernelActivateTask(cfg *models.Config, redisClient *storage.RedisClient) {
-	// var kernels []models.KernelInfo
 	var wg sync.WaitGroup
 
 	kernelsJSON, err := redisClient.LRange(cfg.RedisKey, 0, -1)
@@ -73,5 +72,3 @@ func KernelActivateTask(cfg *models.Config, redisClient *storage.RedisClient) {
 
 	wg.Wait()
 }
-
-// 如果lrange的阈值小于指定数据，需要同步进行pool扩充的操作
