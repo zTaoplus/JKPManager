@@ -1,11 +1,11 @@
 # JKPManager
-Jupyter kernels Pool manager
 
+Jupyter kernels Pool manager
 
 A http server for jupyter kernels pool management
 
+## ENV
 
-### ENV
 | NAME                    | Default Value               | Description                                              |
 | ----------------------- | --------------------------- | -------------------------------------------------------- |
 | JKP_EG_ENDPOINT         | http://127.0.0.1:8888       | jupyter server enterprise gateway.                       |
@@ -22,31 +22,30 @@ A http server for jupyter kernels pool management
 | JKP_REDIS_DB            | 0                           | Redis DB                                                 |
 | JKP_REDIS_KEY           | tablegpt-test:kernels:idle  | redis key to save kernels info                           |
 
+## API
 
+### Parameters
 
-API 
-Parameters
-| Name   | Required | Description                            |
-| ------ | -------- | -------------------------------------- |
+| Name   | Required | Description                                            |
+| ------ | -------- | ------------------------------------------------------ |
 | userId | true     | Create a directory and cd into the directory's userId. |
-``` 
+
 POST /api/kernels/pop/ HTTP/1.1
 Content-Type: application/json
 Host: 127.0.0.1:8080
 
 {
-	"userId":"zt"
+    userId":"zt"
 }
 
-```
-Response
+### Response
 
 ```json
 {
-	"id": "7d7e2f30-60bf-415c-836c-1137256965d9",
-	"name": "python_kubernetes",
-	"last_activity": "2024-02-29T06:37:19.189801Z",
-	"execution_state": "starting",
-	"connections": 0
+    "id": "7d7e2f30-60bf-415c-836c-1137256965d9",
+    "name": "python_kubernetes",
+    "last_activity": "2024-02-29T06:37:19.189801Z",
+    "execution_state": "starting",
+    "connections": 0
 }
 ```
