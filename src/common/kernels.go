@@ -79,7 +79,7 @@ func createKernel(cfg *models.Config, httpClient *HTTPClient, redisClient *stora
 
 			err = dec.Decode(&kernelInfo)
 			if err != nil {
-				log.Printf("Failed to decode kernelInfo: %v", err)
+				log.Printf("Failed to decode kernelInfo: %v,response: %v", err, string(resp))
 				return err
 			}
 			return nil
