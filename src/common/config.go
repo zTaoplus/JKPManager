@@ -14,17 +14,17 @@ func InitConfig() (*models.Config, error) {
 
 	viper.SetDefault("EG_ENDPOINT", "http://127.0.0.1:8888")
 	viper.SetDefault("MAX_PENDING_KERNELS", 10)
-	viper.SetDefault("NFS_VOLUME_SERVER", "10.0.0.29")
-	viper.SetDefault("NFS_MOUNT_PATH", "/data/tablegpt-test/shared/")
+	viper.SetDefault("NFS_VOLUME_SERVER", "127.0.0.1")
+	viper.SetDefault("NFS_MOUNT_PATH", "/data/")
 	viper.SetDefault("WORKING_DIR", "/mnt/shared")
 	viper.SetDefault("KERNEL_IMAGE", "elyra/kernel-py:3.2.2")
-	viper.SetDefault("KERNEL_NAMESPACE", "tablegpt-kernels")
+	viper.SetDefault("KERNEL_NAMESPACE", "default")
 	viper.SetDefault("SERVER_PORT", "8080")
 	viper.SetDefault("ACTIVATION_INTERVAL", 1800)
 	viper.SetDefault("REDIS_HOST", "127.0.0.1")
 	viper.SetDefault("REDIS_PORT", "6379")
 	viper.SetDefault("REDIS_DB", "0")
-	viper.SetDefault("REDIS_KEY", "tablegpt-test:kernels:idle")
+	viper.SetDefault("REDIS_KEY", "jupyter:kernels:idle")
 
 	var cfg models.Config
 
