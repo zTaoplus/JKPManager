@@ -15,7 +15,6 @@ func PopKernelHandler(cfg *models.Config, httpClient *common.HTTPClient, redisCl
 		w.Header().Set("Content-Type", "application/json")
 
 		poppedKernels, err := redisClient.BRPop(cfg.RedisKey)
-		log.Println("poppedKernels:", poppedKernels[1])
 
 		if err != nil {
 			log.Printf("Cannot pop the kernel from redis. error %v", err)
@@ -23,6 +22,7 @@ func PopKernelHandler(cfg *models.Config, httpClient *common.HTTPClient, redisCl
 			return
 		}
 
+		log.Println("poppedKernels:", poppedKernels[1])
 		go common.StartKernels(cfg, httpClient, redisClient, 1)
 
 		w.Write([]byte(poppedKernels[1]))
