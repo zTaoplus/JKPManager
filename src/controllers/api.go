@@ -3,6 +3,7 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"zjuici.com/tablegpt/jkpmanager/src/common"
 	"zjuici.com/tablegpt/jkpmanager/src/models"
@@ -14,17 +15,18 @@ func PopKernelHandler(cfg *models.Config, taskClient *common.TaskClient, redisCl
 
 		w.Header().Set("Content-Type", "application/json")
 
-		poppedKernels, err := redisClient.BRPop(cfg.RedisKey)
+		poppedKernels, err := redisClient.BRPop(10*time.Second, cfg.RedisKey)
 
 		if err != nil {
 			log.Printf("Cannot pop the kernel from redis. error %v", err)
 			http.Error(w, "Cannot pop the kernel", http.StatusInternalServerError)
 			return
 		}
+		kernelInfo := poppedKernels[1]
 
-		log.Println("poppedKernels:", poppedKernels[1])
+		log.Println("poppedKernels:", kernelInfo)
 		taskClient.StartKernels(1)
 
-		w.Write([]byte(poppedKernels[1]))
+		w.Write([]byte(kernelInfo))
 	}
 }

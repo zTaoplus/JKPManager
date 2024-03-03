@@ -37,8 +37,8 @@ func (r *RedisClient) LPush(key string, value string) error {
 	return r.Client.LPush(key, value).Err()
 }
 
-func (r *RedisClient) BRPop(key string) ([]string, error) {
-	return r.Client.BRPop(5*time.Second, key).Result()
+func (r *RedisClient) BRPop(timeout time.Duration, key string) ([]string, error) {
+	return r.Client.BRPop(timeout, key).Result()
 }
 
 func (r *RedisClient) RPop(key string) (string, error) {
