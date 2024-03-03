@@ -1,21 +1,206 @@
 package common
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"zjuici.com/tablegpt/jkpmanager/src/models"
 	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
-// 定时任务 间隔20分钟 激活一次所有连接
-func kernelActivator(egWsEndpoint string, kernel *models.KernelInfo, wg *sync.WaitGroup) {
+type TaskClient struct {
+	httpClient            *HTTPClient
+	redisClient           *storage.RedisClient
+	cfg                   *models.Config
+	toCreateKernelsChan   chan map[string]interface{}
+	toActivateKernelsChan chan string
+	done                  chan struct{}
+}
 
-	defer wg.Done()
-	wsUrl := egWsEndpoint + "/api/kernels/" + kernel.ID + "/channels"
+func NewTaskClient(cfg *models.Config) *TaskClient {
+	return &TaskClient{
+		toCreateKernelsChan:   make(chan map[string]interface{}, 200),
+		toActivateKernelsChan: make(chan string, 200),
+		cfg:                   cfg,
+		done:                  make(chan struct{}),
+		httpClient:            NewHTTPClient(cfg.EGEndpoint),
+		redisClient:           storage.NewRedisClient(cfg.RedisHost, cfg.RedisPort),
+	}
+}
+
+func (t *TaskClient) Start() {
+	go t.startKernelsLoop()
+	go t.activateKernelsLoop()
+}
+
+func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
+
+	kernelVolumeMounts, err := json.Marshal([]map[string]string{
+		{
+			"name":      "shared-vol",
+			"mountPath": t.cfg.WorkingDir,
+		},
+	})
+	if err != nil {
+		log.Println("Cannot marshal the kernelVolumeMounts")
+	}
+	kernelVolumes, err := json.Marshal([]map[string]interface{}{
+		{"name": "shared-vol",
+			"nfs": map[string]string{
+				"server": t.cfg.NFSVolumeServer,
+				"path":   t.cfg.NFSMountPath,
+			},
+		},
+	})
+
+	if err != nil {
+		log.Println("Cannot marshal the kernelVolumes")
+	}
+
+	data := map[string]interface{}{
+		"name": "python_kubernetes",
+		"env": map[string]string{
+			"KERNEL_NAMESPACE":     t.cfg.KernelNamespace,
+			"KERNEL_WORKING_DIR":   t.cfg.WorkingDir,
+			"KERNEL_VOLUME_MOUNTS": string(kernelVolumeMounts),
+			"KERNEL_VOLUMES":       string(kernelVolumes),
+			"KERNEL_IMAGE":         t.cfg.KernelImage,
+		},
+	}
+
+	for i := 0; i < needCreateKernelCount; i++ {
+		t.toCreateKernelsChan <- data
+	}
+
+	return nil
+}
+
+func (t *TaskClient) ActivateKernels() error {
+
+	kernelsJSON, err := t.redisClient.LRange(t.cfg.RedisKey, 0, -1)
+
+	if err != nil {
+		log.Printf("Error when LRange redis: %v", err)
+		return err
+	}
+
+	// TODO: create
+	// if len(kernelsJSON) < 3 {
+	// 	log.Println("go create kernels, len(kernelsJSON) < 3")
+	// }
+
+	for _, kernelStr := range kernelsJSON {
+		var kernel models.KernelInfo
+		err := json.Unmarshal([]byte(kernelStr), &kernel)
+		if err != nil {
+			fmt.Println("Failed to unmarshal kernel JSON:", err)
+			continue
+		}
+		t.toActivateKernelsChan <- kernel.ID
+	}
+
+	return nil
+}
+
+func (t *TaskClient) startKernelsLoop() {
+
+	for {
+		select {
+		case <-t.done:
+			return
+		case data := <-t.toCreateKernelsChan:
+			err := t.createKernel(data)
+			if err != nil {
+				log.Println("cannot create kernel, err:", err)
+			}
+
+		}
+
+	}
+}
+
+func (t *TaskClient) activateKernelsLoop() {
+
+	for {
+		select {
+		case <-t.done:
+			return
+		case kernelId := <-t.toActivateKernelsChan:
+			err := t.activateKernel(kernelId)
+			if err != nil {
+				log.Println("Cannot activate kernel, err:", err)
+			}
+		}
+
+	}
+}
+
+func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		panic("cannot marshal reqBody,please check code.")
+	}
+	var kernelInfo models.KernelInfo
+	var created bool
+	created = false
+	for i := 0; i < 3; i++ {
+		err := func() error {
+			log.Printf("create kernel with json: %v", string(jsonData))
+			resp, err := t.httpClient.Post("/api/kernels", jsonData)
+
+			if err != nil {
+				log.Printf("Failed to create kernel: %v", err)
+				return err
+			}
+
+			dec := json.NewDecoder(bytes.NewReader(resp))
+			dec.DisallowUnknownFields()
+
+			err = dec.Decode(&kernelInfo)
+			if err != nil {
+				log.Printf("Failed to decode kernelInfo: %v,response: %v", err, string(resp))
+				return err
+			}
+			return nil
+		}()
+		if err != nil {
+			log.Printf("create kernel failed: %v,retry time: %v", err, i)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		created = true
+		break
+	}
+	if !created {
+		log.Println()
+		return errors.New("cannot create kernel after 3 times")
+	}
+	kernelJSON, err := json.Marshal(kernelInfo)
+	if err != nil {
+		// panic("Cannot Marshal kernelInfo!!!")
+		return err
+	}
+
+	err = t.redisClient.LPush(t.cfg.RedisKey, string(kernelJSON))
+	if err != nil {
+		// panic("Cannot LPush kernelInfo!!!")
+		log.Println("Cannot LPush kernelInfo")
+		return err
+	}
+
+	return nil
+
+}
+
+// 定时任务 间隔20分钟 激活一次所有连接
+func (t *TaskClient) activateKernel(kernelId string) error {
+
+	wsUrl := t.cfg.EGWSEndpoint + "/api/kernels/" + kernelId + "/channels"
 
 	wsClient := NewWebSocketClient(wsUrl)
 	defer wsClient.Close()
@@ -23,7 +208,7 @@ func kernelActivator(egWsEndpoint string, kernel *models.KernelInfo, wg *sync.Wa
 	err := wsClient.Activate()
 	if err != nil {
 		log.Printf("Cannot connect to the websocket: %v", err)
-		return
+		return nil
 
 	}
 	idleCount := 0
@@ -34,41 +219,13 @@ func kernelActivator(egWsEndpoint string, kernel *models.KernelInfo, wg *sync.Wa
 
 			if InfoRequestResult(message, &idleCount) {
 				log.Println("active the kernel done")
-				return
+				return nil
 			}
 		case <-time.After(3 * time.Second):
 			log.Printf("Waiting Timeout")
-			return
+			return errors.New("waiting timeout")
+
 		}
+
 	}
-
-}
-
-// got values from redis
-func KernelActivateTask(cfg *models.Config, redisClient *storage.RedisClient) {
-	var wg sync.WaitGroup
-
-	kernelsJSON, err := redisClient.LRange(cfg.RedisKey, 0, -1)
-
-	if err != nil {
-		log.Printf("Error when LRange redis: %v", err)
-		return
-	}
-
-	if len(kernelsJSON) < 3 {
-		log.Println("go create kernels, len(kernelsJSON) < 3")
-	}
-
-	for _, kernelStr := range kernelsJSON {
-		var kernel models.KernelInfo
-		err := json.Unmarshal([]byte(kernelStr), &kernel)
-		if err != nil {
-			fmt.Println("Failed to unmarshal kernel JSON:", err)
-			continue
-		}
-		wg.Add(1)
-		go kernelActivator(cfg.EGWSEndpoint, &kernel, &wg)
-	}
-
-	wg.Wait()
 }

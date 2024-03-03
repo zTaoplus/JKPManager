@@ -24,10 +24,13 @@ func main() {
 	// strict slash
 	r.StrictSlash(true)
 
-	httpClient := common.NewHTTPClient(cfg.EGEndpoint)
+	// httpClient := common.NewHTTPClient(cfg.EGEndpoint)
 
 	redisClient := storage.NewRedisClient(cfg.RedisHost, cfg.RedisPort)
 	// init kernel
+
+	taskClient := common.NewTaskClient(cfg)
+	taskClient.Start()
 
 	// if needCreateKernelCount
 	storedKernelsLen, err := redisClient.LLen(cfg.RedisKey)
@@ -36,14 +39,17 @@ func main() {
 	}
 
 	needCreateKernelCount := cfg.MaxPendingKernels - int(storedKernelsLen)
+	if needCreateKernelCount < 0 {
+		needCreateKernelCount = 0
+	}
 	log.Printf("Existing Pending Kernel Count: %v, needCreateKernelCount: %v", storedKernelsLen, needCreateKernelCount)
-	common.StartKernels(cfg, httpClient, redisClient, needCreateKernelCount)
+	taskClient.StartKernels(needCreateKernelCount)
 
 	// 启动web监听
 	go func() {
 		log.Println("Staring http server")
 		http.Handle("/", r)
-		r.HandleFunc("/api/kernels/pop/", controllers.PopKernelHandler(cfg, httpClient, redisClient)).Methods("POST")
+		r.HandleFunc("/api/kernels/pop/", controllers.PopKernelHandler(cfg, taskClient, redisClient)).Methods("POST")
 		log.Fatal(http.ListenAndServe(":"+cfg.ServerPort, nil))
 	}()
 
@@ -56,7 +62,7 @@ func main() {
 		// task
 		for range ticker.C {
 			log.Println("Scheduled task starting!")
-			common.KernelActivateTask(cfg, redisClient)
+			go taskClient.ActivateKernels()
 		}
 	}()
 

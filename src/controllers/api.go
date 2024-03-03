@@ -9,7 +9,7 @@ import (
 	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
-func PopKernelHandler(cfg *models.Config, httpClient *common.HTTPClient, redisClient *storage.RedisClient) http.HandlerFunc {
+func PopKernelHandler(cfg *models.Config, taskClient *common.TaskClient, redisClient *storage.RedisClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
@@ -23,7 +23,7 @@ func PopKernelHandler(cfg *models.Config, httpClient *common.HTTPClient, redisCl
 		}
 
 		log.Println("poppedKernels:", poppedKernels[1])
-		go common.StartKernels(cfg, httpClient, redisClient, 1)
+		taskClient.StartKernels(1)
 
 		w.Write([]byte(poppedKernels[1]))
 	}
