@@ -62,7 +62,7 @@ func main() {
 		// task
 		for range ticker.C {
 			log.Println("Scheduled task starting!")
-			go taskClient.ActivateKernels()
+			taskClient.ActivateKernels()
 		}
 	}()
 

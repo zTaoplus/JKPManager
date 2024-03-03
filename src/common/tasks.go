@@ -88,11 +88,6 @@ func (t *TaskClient) ActivateKernels() error {
 		return err
 	}
 
-	// TODO: create
-	// if len(kernelsJSON) < 3 {
-	// 	log.Println("go create kernels, len(kernelsJSON) < 3")
-	// }
-
 	for _, kernelStr := range kernelsJSON {
 		var kernel models.KernelInfo
 		err := json.Unmarshal([]byte(kernelStr), &kernel)
@@ -180,6 +175,9 @@ func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
 		log.Println()
 		return errors.New("cannot create kernel after 3 times")
 	}
+
+	log.Println("Created kernel:", kernelInfo)
+
 	kernelJSON, err := json.Marshal(kernelInfo)
 	if err != nil {
 		// panic("Cannot Marshal kernelInfo!!!")
