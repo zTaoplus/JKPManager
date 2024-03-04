@@ -60,14 +60,6 @@ func main() {
 	log.Printf("Existing Pending Kernel Count: %v, needCreateKernelCount: %v", storedKernelsLen, needCreateKernelCount)
 	taskClient.StartKernels(needCreateKernelCount)
 
-	// 启动web监听
-	go func() {
-		log.Println("Staring http server")
-		http.Handle("/", r)
-		r.HandleFunc("/api/kernels/pop/", controllers.PopKernelHandler(cfg, taskClient, redisClient)).Methods("POST")
-		log.Fatal(http.ListenAndServe(":"+cfg.ServerPort, nil))
-	}()
-
 	// 启动定时任务
 	go func() {
 		log.Printf("Start the scheduled task KernelActivator, activate at intervals of %v seconds.", cfg.ActivationInterval)
@@ -81,7 +73,9 @@ func main() {
 		}
 	}()
 
-	// 阻塞主goroutine
-	select {}
+	log.Println("Staring http server")
+	http.Handle("/", r)
+	r.HandleFunc("/api/kernels/pop/", controllers.PopKernelHandler(cfg, taskClient, redisClient)).Methods("POST")
+	log.Fatal(http.ListenAndServe(":"+cfg.ServerPort, nil))
 
 }
