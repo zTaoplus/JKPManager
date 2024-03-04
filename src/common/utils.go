@@ -29,7 +29,6 @@ func InfoRequestResult(result []byte, idleCount *int) bool {
 
 	}
 
-	// log.Println("Execution State:", content.ExecutionState)
 	if content.ExecutionState == "idle" {
 		*idleCount++
 		if *idleCount == 2 {

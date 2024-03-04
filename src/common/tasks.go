@@ -204,10 +204,10 @@ func (t *TaskClient) activateKernel(kernelId string) error {
 
 	for i := 0; i < 3; i++ {
 		err := wsClient.Activate()
+
 		if err != nil {
-			log.Printf("Cannot connect to the websocket, retry count: %v", i+1)
-			log.Printf("Cannot connect to the websocket: %v,kernel ID: %v", err, kernelId)
-			log.Println("Do http get to activate the kernel")
+			log.Printf("Cannot connect to the websocket: %v,kernel ID: %v , retry count: %v", err, kernelId, i+1)
+			log.Println("Do http get to EG to pre-activate the kernel,kernel ID", kernelId)
 
 			_, err := t.httpClient.Get("/api/kernels/" + kernelId)
 
@@ -215,6 +215,8 @@ func (t *TaskClient) activateKernel(kernelId string) error {
 				log.Println("Cannot http get to activate the kernel,kernel id:", kernelId)
 				time.Sleep(1 * time.Second)
 			}
+
+			log.Printf("pre-activate kernel ID: %v done", kernelId)
 		} else {
 			break
 		}

@@ -35,7 +35,7 @@ func (c *WebSocketClient) Activate() error {
 	dialer := websocket.DefaultDialer
 	dialer.HandshakeTimeout = 2 * time.Second // Timeout for handshake
 
-	log.Printf("connected WebSocket server: %s, HandshakeTimeout:%s\n", c.URL, dialer.HandshakeTimeout)
+	log.Printf("connecting WebSocket server: %s, HandshakeTimeout:%s\n", c.URL, dialer.HandshakeTimeout)
 	conn, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
 		return err
