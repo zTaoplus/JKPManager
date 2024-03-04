@@ -29,6 +29,10 @@ func (r *RedisClient) Get(key string) (string, error) {
 	return r.Client.Get(key).Result()
 }
 
+func (r *RedisClient) Ping() error {
+	return r.Client.Ping().Err()
+}
+
 func (r *RedisClient) LLen(key string) (int64, error) {
 	return r.Client.LLen(key).Result()
 }

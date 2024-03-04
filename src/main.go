@@ -27,15 +27,30 @@ func main() {
 	// httpClient := common.NewHTTPClient(cfg.EGEndpoint)
 
 	redisClient := storage.NewRedisClient(cfg.RedisHost, cfg.RedisPort)
-	// init kernel
 
+	// check redis health
+	redisHealth := false
+	for i := 0; i < 5; i++ {
+		err := redisClient.Ping()
+		if err != nil {
+			log.Printf("Failed to ping redis, retry count: %v", i+1)
+			time.Sleep(1500 * time.Millisecond)
+			continue
+		}
+		redisHealth = true
+	}
+
+	if !redisHealth {
+		log.Panicf("Failed to ping redis after 5 retries,error: %v", err)
+	}
+
+	// start task
 	taskClient := common.NewTaskClient(cfg)
 	taskClient.Start()
 
-	// if needCreateKernelCount
 	storedKernelsLen, err := redisClient.LLen(cfg.RedisKey)
 	if err != nil {
-		panic(err)
+		log.Panicf("Cannot get the kernel count from redis: %v", err)
 	}
 
 	needCreateKernelCount := cfg.MaxPendingKernels - int(storedKernelsLen)
