@@ -127,7 +127,7 @@ func (t *TaskClient) activateKernelsLoop() {
 		case kernelId := <-t.toActivateKernelsChan:
 			err := t.activateKernel(kernelId)
 			if err != nil {
-				log.Println("Cannot activate kernel, err:", err)
+				log.Printf("Cannot activate kernel,ID: %v, err: %v", kernelId, err)
 			}
 		}
 
@@ -164,7 +164,7 @@ func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
 			return nil
 		}()
 		if err != nil {
-			log.Printf("create kernel failed: %v,retry time: %v", err, i)
+			log.Printf("create kernel failed: %v,retry time: %v", err, i+1)
 			time.Sleep(1 * time.Second)
 			continue
 		}
@@ -195,7 +195,6 @@ func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
 
 }
 
-// 定时任务 间隔20分钟 激活一次所有连接
 func (t *TaskClient) activateKernel(kernelId string) error {
 
 	wsUrl := t.cfg.EGWSEndpoint + "/api/kernels/" + kernelId + "/channels"
@@ -203,12 +202,24 @@ func (t *TaskClient) activateKernel(kernelId string) error {
 	wsClient := NewWebSocketClient(wsUrl)
 	defer wsClient.Close()
 
-	err := wsClient.Activate()
-	if err != nil {
-		log.Printf("Cannot connect to the websocket: %v", err)
-		return nil
+	for i := 0; i < 3; i++ {
+		err := wsClient.Activate()
+		if err != nil {
+			log.Printf("Cannot connect to the websocket, retry count: %v", i+1)
+			log.Printf("Cannot connect to the websocket: %v,kernel ID: %v", err, kernelId)
+			log.Println("Do http get to activate the kernel")
 
+			_, err := t.httpClient.Get("/api/kernels/" + kernelId)
+
+			if err != nil {
+				log.Println("Cannot http get to activate the kernel,kernel id:", kernelId)
+				time.Sleep(1 * time.Second)
+			}
+		} else {
+			break
+		}
 	}
+
 	idleCount := 0
 
 	for {
@@ -216,7 +227,7 @@ func (t *TaskClient) activateKernel(kernelId string) error {
 		case message := <-wsClient.ResultChan:
 
 			if InfoRequestResult(message, &idleCount) {
-				log.Println("active the kernel done")
+				log.Println("active the kernel done,ID: ", kernelId)
 				return nil
 			}
 		case <-time.After(3 * time.Second):
