@@ -178,6 +178,14 @@ func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
 
 	log.Println("Created kernel:", kernelInfo)
 
+	// TODO: CREATED kernel then pre activate
+	_, err = t.httpClient.Get("/api/kernels/" + kernelInfo.ID)
+
+	if err != nil {
+		log.Println("Cannot pre activate the kernel, id:", kernelInfo.ID)
+	}
+	log.Println("pre-activate after created done.")
+
 	kernelJSON, err := json.Marshal(kernelInfo)
 	if err != nil {
 		// panic("Cannot Marshal kernelInfo!!!")
