@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -25,6 +27,24 @@ func PopKernelHandler(cfg *models.Config, taskClient *common.TaskClient, redisCl
 		kernelInfo := poppedKernels[1]
 
 		log.Println("poppedKernels:", kernelInfo)
+		// TODO: after pop , activate with http get
+
+		var kernel models.KernelInfo
+		err = json.Unmarshal([]byte(kernelInfo), &kernel)
+		if err != nil {
+			fmt.Println("Failed to unmarshal kernel JSON:", err)
+			return
+		}
+		log.Println("Try to activate kernel:", kernel.ID)
+
+		httpClient := common.NewHTTPClient(cfg.EGEndpoint)
+		_, err = httpClient.Get("/api/kernels/" + kernel.ID)
+		if err != nil {
+			log.Println("Cannot get the kernel info from Eg: ", err)
+		}
+
+		log.Printf("Pre activate kernel %v done", kernel.ID)
+
 		taskClient.StartKernels(1)
 
 		w.Write([]byte(kernelInfo))
