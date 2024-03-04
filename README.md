@@ -24,19 +24,9 @@ A http server for jupyter kernels pool management
 
 ## API
 
-### Parameters
-
-| Name   | Required | Description                                            |
-| ------ | -------- | ------------------------------------------------------ |
-| userId | true     | Create a directory and cd into the directory's userId. |
-
-POST /api/kernels/pop/ HTTP/1.1
-Content-Type: application/json
-Host: 127.0.0.1:8080
-
-{
-    userId":"zt"
-}
+```sh
+curl --request POST --url http://127.0.0.1:8080/api/kernels/pop/
+```
 
 ### Response
 
@@ -48,4 +38,16 @@ Host: 127.0.0.1:8080
     "execution_state": "starting",
     "connections": 0
 }
+```
+
+
+## How to run locally
+
+```sh
+git clone https://github.com/zTaoplus/JKPManager.git
+
+cd JKPManager/
+
+go run ./src/main.go
+
 ```
