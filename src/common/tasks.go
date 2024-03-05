@@ -82,7 +82,7 @@ func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
 
 	creatingKernelCount := t.creatingKernelCount.Get()
 
-	if int(idleKernels)+creatingKernelCount+needCreateKernelCount >= t.cfg.MaxPendingKernels {
+	if int(idleKernels)+creatingKernelCount+needCreateKernelCount > t.cfg.MaxPendingKernels {
 		// TODO: delete kernel or using eg to delete??
 		log.Printf("Idle kernels more than the max pending kernels,"+
 			"idleKernels: %v,creating:%v,needCreate:%v, maxPending:%v",
