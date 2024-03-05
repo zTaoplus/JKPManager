@@ -6,16 +6,49 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"zjuici.com/tablegpt/jkpmanager/src/models"
 	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
+type CreatingKernelCount struct {
+	creatingCount int
+	mu            sync.Mutex
+}
+
+func NewCreatingKernelCount() *CreatingKernelCount {
+	return &CreatingKernelCount{}
+}
+
+func (c *CreatingKernelCount) Increment() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.creatingCount++
+
+}
+
+func (c *CreatingKernelCount) Decrement() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.creatingCount > 0 {
+		c.creatingCount--
+	}
+
+}
+
+func (c *CreatingKernelCount) Get() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.creatingCount
+}
+
 type TaskClient struct {
 	httpClient            *HTTPClient
 	redisClient           *storage.RedisClient
 	cfg                   *models.Config
+	creatingKernelCount   *CreatingKernelCount
 	toCreateKernelsChan   chan map[string]interface{}
 	toActivateKernelsChan chan string
 	done                  chan struct{}
@@ -26,6 +59,7 @@ func NewTaskClient(cfg *models.Config) *TaskClient {
 		toCreateKernelsChan:   make(chan map[string]interface{}, 200),
 		toActivateKernelsChan: make(chan string, 200),
 		cfg:                   cfg,
+		creatingKernelCount:   NewCreatingKernelCount(),
 		done:                  make(chan struct{}),
 		httpClient:            NewHTTPClient(cfg.EGEndpoint),
 		redisClient:           storage.NewRedisClient(cfg.RedisHost, cfg.RedisPort),
@@ -35,6 +69,7 @@ func NewTaskClient(cfg *models.Config) *TaskClient {
 func (t *TaskClient) Start() {
 	go t.startKernelsLoop()
 	go t.activateKernelsLoop()
+	go t.checkAndCreateKernelsLoop()
 }
 
 func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
@@ -134,7 +169,52 @@ func (t *TaskClient) activateKernelsLoop() {
 	}
 }
 
+func (t *TaskClient) checkAndCreateKernelsLoop() {
+	// 120s 检查一次，队列剩余
+
+	ticker := time.NewTicker(120 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-t.done:
+			return
+		case <-ticker.C:
+			t.checkAndCreateKernels()
+		}
+	}
+}
+
+func (t *TaskClient) checkAndCreateKernels() {
+	log.Println("Staring Check And create Kernels")
+
+	kernelsInRedis, err := t.redisClient.LLen(t.cfg.RedisKey)
+	if err != nil {
+		log.Printf("[TASK:checkAndCreateKernels] Error when getting Redis list length: %v", err)
+		return
+	}
+
+	creatingKernelCount := t.creatingKernelCount.Get()
+	totalKernels := int(kernelsInRedis) + creatingKernelCount
+
+	maxKernelLen := t.cfg.MaxPendingKernels
+
+	if totalKernels < maxKernelLen {
+		needCreateKernelCount := maxKernelLen - totalKernels
+		log.Println("[TASK:checkAndCreateKernels] Check Result: needCreateKernelCount:", needCreateKernelCount)
+		err := t.StartKernels(needCreateKernelCount)
+		if err != nil {
+			log.Printf("[TASK:checkAndCreateKernels] Error when starting kernels: %v", err)
+		}
+	} else {
+		log.Println("[TASK:checkAndCreateKernels] No need to create more kernels")
+	}
+
+}
+
 func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
+	t.creatingKernelCount.Increment()
+	defer t.creatingKernelCount.Decrement()
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
@@ -145,11 +225,11 @@ func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
 	created = false
 	for i := 0; i < 3; i++ {
 		err := func() error {
-			log.Printf("create kernel with json: %v", string(jsonData))
+			// log.Printf("create kernel with json: %v", string(jsonData))
 			resp, err := t.httpClient.Post("/api/kernels", jsonData)
 
 			if err != nil {
-				log.Printf("Failed to create kernel: %v", err)
+				log.Printf("Failed to create kernel: %v,json data %v", err, string(jsonData))
 				return err
 			}
 
