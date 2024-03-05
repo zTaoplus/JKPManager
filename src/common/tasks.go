@@ -170,9 +170,9 @@ func (t *TaskClient) activateKernelsLoop() {
 }
 
 func (t *TaskClient) checkAndCreateKernelsLoop() {
-	// 120s 检查一次，队列剩余
+	log.Println("[TASK:checkAndCreateKernelsLoop] task started, timer: ", t.cfg.CheckTaskInterval)
 
-	ticker := time.NewTicker(120 * time.Second)
+	ticker := time.NewTicker(time.Duration(t.cfg.CheckTaskInterval) * time.Second)
 	defer ticker.Stop()
 
 	for {

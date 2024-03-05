@@ -21,6 +21,7 @@ func InitConfig() (*models.Config, error) {
 	viper.SetDefault("KERNEL_NAMESPACE", "default")
 	viper.SetDefault("SERVER_PORT", "8080")
 	viper.SetDefault("ACTIVATION_INTERVAL", 1800)
+	viper.SetDefault("CHECK_TASK_INTERVAL", 120)
 	viper.SetDefault("REDIS_HOST", "127.0.0.1")
 	viper.SetDefault("REDIS_PORT", "6379")
 	viper.SetDefault("REDIS_DB", "0")

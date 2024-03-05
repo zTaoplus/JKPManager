@@ -98,6 +98,7 @@ type Config struct {
 	KernelImage        string `mapstructure:"KERNEL_IMAGE"`
 	ServerPort         string `mapstructure:"SERVER_PORT"`
 	ActivationInterval int    `mapstructure:"ACTIVATION_INTERVAL"`
+	CheckTaskInterval  int    `mapstructure:"CHECK_TASK_INTERVAL"`
 	// CreateKernelThreshold float64 `mapstructure:"KERNEL_THRESHOLD"`
 	RedisHost       string `mapstructure:"REDIS_HOST"`
 	RedisPort       string `mapstructure:"REDIS_PORT"`
