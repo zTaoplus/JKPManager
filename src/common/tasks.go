@@ -74,6 +74,23 @@ func (t *TaskClient) Start() {
 
 func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
 
+	idleKernels, err := t.redisClient.LLen(t.cfg.RedisKey)
+	if err != nil {
+		log.Println("Cannot cat idle kernels count from redis, err:", err)
+		return errors.New("cannot cat idle kernels count from redis")
+	}
+
+	creatingKernelCount := t.creatingKernelCount.Get()
+
+	if int(idleKernels)+creatingKernelCount+needCreateKernelCount >= t.cfg.MaxPendingKernels {
+		// TODO: delete kernel or using eg to delete??
+		log.Printf("Idle kernels more than the max pending kernels,"+
+			"idleKernels: %v,creating:%v,needCreate:%v, maxPending:%v",
+			idleKernels, creatingKernelCount, needCreateKernelCount, t.cfg.MaxPendingKernels)
+
+		return nil
+	}
+
 	kernelVolumeMounts, err := json.Marshal([]map[string]string{
 		{
 			"name":      "shared-vol",
