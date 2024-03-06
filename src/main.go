@@ -52,8 +52,8 @@ func main() {
 	if err != nil {
 		log.Panicf("Cannot get the kernel count from redis: %v", err)
 	}
+	log.Printf("Existing Pending Kernel Count: %v, Max Pending Kernel Count: %v", storedKernelsLen, cfg.MaxPendingKernels)
 
-	// TODO: when needCreateKernelCount is <0, we will pop kernels in redis and delete it by eg url delete api.
 	needCreateKernelCount := cfg.MaxPendingKernels - int(storedKernelsLen)
 	if needCreateKernelCount < 0 {
 		log.Println("need to delete :", -needCreateKernelCount)
@@ -61,7 +61,8 @@ func main() {
 
 		needCreateKernelCount = 0
 	}
-	log.Printf("Existing Pending Kernel Count: %v, needCreateKernelCount: %v", storedKernelsLen, needCreateKernelCount)
+
+	log.Println("needCreateKernelCount:", needCreateKernelCount)
 	taskClient.StartKernels(needCreateKernelCount)
 
 	// 启动定时任务
