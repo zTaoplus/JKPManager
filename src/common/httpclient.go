@@ -2,6 +2,7 @@ package common
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +21,9 @@ func NewHTTPClient(baseURL string) *HTTPClient {
 func (c *HTTPClient) Get(endpoint string) ([]byte, error) {
 	url := c.BaseURL + endpoint
 	response, err := http.Get(url)
+	if response.StatusCode != http.StatusOK {
+		return nil, errors.New("get kernel info from error , status code: " + fmt.Sprint(response.StatusCode))
+	}
 	if err != nil {
 		return nil, err
 	}

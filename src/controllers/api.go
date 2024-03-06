@@ -16,36 +16,45 @@ func PopKernelHandler(cfg *models.Config, taskClient *common.TaskClient, redisCl
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
-
-		poppedKernels, err := redisClient.BRPop(10*time.Second, cfg.RedisKey)
-
-		if err != nil {
-			log.Printf("Cannot pop the kernel from redis. error %v", err)
-			http.Error(w, "Cannot pop the kernel", http.StatusInternalServerError)
-			return
-		}
-		kernelInfo := poppedKernels[1]
-
-		log.Println("poppedKernels:", kernelInfo)
-		// TODO: after pop , activate with http get
-
-		var kernel models.KernelInfo
-		err = json.Unmarshal([]byte(kernelInfo), &kernel)
-		if err != nil {
-			fmt.Println("Failed to unmarshal kernel JSON:", err)
-			return
-		}
-		log.Println("Try to activate kernel:", kernel.ID)
+		var kernelInfo string
 
 		httpClient := common.NewHTTPClient(cfg.EGEndpoint)
-		_, err = httpClient.Get("/api/kernels/" + kernel.ID)
-		if err != nil {
-			log.Println("Cannot get the kernel info from Eg: ", err)
+		var needCreateCount int
+
+		for {
+			poppedKernels, err := redisClient.BRPop(10*time.Second, cfg.RedisKey)
+
+			needCreateCount++
+
+			if err != nil {
+				log.Printf("Cannot pop the kernel from redis. error %v", err)
+				http.Error(w, "Cannot pop the kernel", http.StatusInternalServerError)
+				return
+			}
+			kernelInfo = poppedKernels[1]
+
+			log.Println("poppedKernels:", kernelInfo)
+
+			var kernel models.KernelInfo
+			err = json.Unmarshal([]byte(kernelInfo), &kernel)
+			if err != nil {
+				fmt.Println("Failed to unmarshal kernel JSON:", err)
+				return
+			}
+			log.Println("Try to activate kernel:", kernel.ID)
+
+			_, err = httpClient.Get("/api/kernels/" + kernel.ID)
+
+			if err != nil {
+				log.Println("Cannot get the kernel info from Eg: ", err)
+				continue
+			}
+			log.Printf("Pre activate kernel %v done", kernel.ID)
+			break
 		}
 
-		log.Printf("Pre activate kernel %v done", kernel.ID)
-
-		taskClient.StartKernels(1)
+		log.Println("needCreateCount:", needCreateCount)
+		taskClient.StartKernels(needCreateCount)
 
 		w.Write([]byte(kernelInfo))
 	}
