@@ -74,23 +74,6 @@ func (t *TaskClient) Start() {
 
 func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
 
-	idleKernels, err := t.redisClient.LLen(t.cfg.RedisKey)
-	if err != nil {
-		log.Println("Cannot cat idle kernels count from redis, err:", err)
-		return errors.New("cannot cat idle kernels count from redis")
-	}
-
-	creatingKernelCount := t.creatingKernelCount.Get()
-
-	if int(idleKernels)+creatingKernelCount+needCreateKernelCount > t.cfg.MaxPendingKernels {
-		// TODO: delete kernel or using eg to delete??
-		log.Printf("Idle kernels more than the max pending kernels,"+
-			"idleKernels: %v,creating:%v,needCreate:%v, maxPending:%v",
-			idleKernels, creatingKernelCount, needCreateKernelCount, t.cfg.MaxPendingKernels)
-
-		return nil
-	}
-
 	kernelVolumeMounts, err := json.Marshal([]map[string]string{
 		{
 			"name":      "shared-vol",
@@ -344,4 +327,39 @@ func (t *TaskClient) activateKernel(kernelId string) error {
 		}
 
 	}
+}
+
+// delete kernel by kernelID
+func (t *TaskClient) deleteKernelByKernelId(kernelId string) error {
+	log.Println("deleting kernel by kernel ID: ", kernelId)
+	err := t.httpClient.Delete("/api/kernels/" + kernelId)
+	if err != nil {
+		log.Printf("Cannot delete kernel by kernel ID: %v", kernelId)
+		return err
+	}
+	log.Println("Successfully delete kernel, kernel ID: ", kernelId)
+	return nil
+}
+
+func (t *TaskClient) DeleteKernelByCount(needDeleteCount int) error {
+
+	for i := 0; i < needDeleteCount; i++ {
+		var kernel models.KernelInfo
+		kernelInfo, err := t.redisClient.RPop(t.cfg.RedisKey)
+		if err != nil {
+			continue
+		}
+		err = json.Unmarshal([]byte(kernelInfo), &kernel)
+		if err != nil {
+			log.Println("Cannot unmarshal the kernelInfo..")
+		}
+
+		err = t.deleteKernelByKernelId(kernel.ID)
+		if err != nil {
+			log.Printf("Cannot delete kernel by kernel ID: %v", kernel.ID)
+			continue
+		}
+	}
+	return nil
+
 }

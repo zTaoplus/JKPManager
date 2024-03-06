@@ -53,8 +53,12 @@ func main() {
 		log.Panicf("Cannot get the kernel count from redis: %v", err)
 	}
 
+	// TODO: when needCreateKernelCount is <0, we will pop kernels in redis and delete it by eg url delete api.
 	needCreateKernelCount := cfg.MaxPendingKernels - int(storedKernelsLen)
 	if needCreateKernelCount < 0 {
+		log.Println("need to delete :", -needCreateKernelCount)
+		taskClient.DeleteKernelByCount(-needCreateKernelCount)
+
 		needCreateKernelCount = 0
 	}
 	log.Printf("Existing Pending Kernel Count: %v, needCreateKernelCount: %v", storedKernelsLen, needCreateKernelCount)
