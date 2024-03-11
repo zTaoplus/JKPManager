@@ -1,4 +1,4 @@
-package common
+package scheduler
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"zjuici.com/tablegpt/jkpmanager/src/common"
 	"zjuici.com/tablegpt/jkpmanager/src/models"
 	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
@@ -45,7 +46,7 @@ func (c *CreatingKernelCount) Get() int {
 }
 
 type TaskClient struct {
-	httpClient            *HTTPClient
+	httpClient            *common.HTTPClient
 	redisClient           *storage.RedisClient
 	cfg                   *models.Config
 	creatingKernelCount   *CreatingKernelCount
@@ -61,7 +62,7 @@ func NewTaskClient(cfg *models.Config) *TaskClient {
 		cfg:                   cfg,
 		creatingKernelCount:   NewCreatingKernelCount(),
 		done:                  make(chan struct{}),
-		httpClient:            NewHTTPClient(cfg.EGEndpoint),
+		httpClient:            common.NewHTTPClient(cfg.EGEndpoint),
 		redisClient:           storage.NewRedisClient(cfg.RedisHost, cfg.RedisPort),
 	}
 }
@@ -287,7 +288,7 @@ func (t *TaskClient) activateKernel(kernelId string) error {
 
 	wsUrl := t.cfg.EGWSEndpoint + "/api/kernels/" + kernelId + "/channels"
 
-	wsClient := NewWebSocketClient(wsUrl)
+	wsClient := common.NewWebSocketClient(wsUrl)
 	defer wsClient.Close()
 
 	for i := 0; i < 3; i++ {
@@ -316,7 +317,7 @@ func (t *TaskClient) activateKernel(kernelId string) error {
 		select {
 		case message := <-wsClient.ResultChan:
 
-			if InfoRequestResult(message, &idleCount) {
+			if common.InfoRequestResult(message, &idleCount) {
 				log.Println("active the kernel done,ID: ", kernelId)
 				return nil
 			}

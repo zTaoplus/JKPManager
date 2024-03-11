@@ -8,6 +8,10 @@ import (
 	"zjuici.com/tablegpt/jkpmanager/src/models"
 )
 
+type contextKey string
+
+const DBConnKey contextKey = "db_conn"
+
 func InitConfig() (*models.Config, error) {
 	viper.SetEnvPrefix("JKP")
 	viper.AutomaticEnv()
@@ -26,6 +30,9 @@ func InitConfig() (*models.Config, error) {
 	viper.SetDefault("REDIS_PORT", "6379")
 	viper.SetDefault("REDIS_DB", "0")
 	viper.SetDefault("REDIS_KEY", "jupyter:kernels:idle")
+
+	viper.SetDefault("PG_DNS", "postgresql://postgres:zjuici@127.0.0.1:5432/postgres?search_path=public")
+	viper.SetDefault("PG_MAX_POOL_SIZE", "20")
 
 	var cfg models.Config
 

@@ -9,10 +9,11 @@ import (
 
 	"zjuici.com/tablegpt/jkpmanager/src/common"
 	"zjuici.com/tablegpt/jkpmanager/src/models"
+	"zjuici.com/tablegpt/jkpmanager/src/scheduler"
 	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
-func PopKernelHandler(cfg *models.Config, taskClient *common.TaskClient, redisClient *storage.RedisClient) http.HandlerFunc {
+func PopKernelHandler(cfg *models.Config, taskClient *scheduler.TaskClient, redisClient *storage.RedisClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
