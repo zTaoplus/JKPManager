@@ -1,6 +1,6 @@
 package models
 
-import "github.com/jackc/pgtype"
+import "encoding/json"
 
 // kernel info
 type KernelInfo struct {
@@ -12,8 +12,9 @@ type KernelInfo struct {
 }
 
 type Session struct {
-	ID         string       `json:"kernel_id"`
-	KernelInfo pgtype.JSONB `json:"kernel_session"`
+	ID string `json:"kernel_id"`
+	// KernelInfo pgtype.JSONB `json:"kernel_session"`
+	KernelInfo json.RawMessage `json:"kernel_session"`
 }
 
 type Config struct {
@@ -27,13 +28,15 @@ type Config struct {
 	ActivationInterval int    `mapstructure:"ACTIVATION_INTERVAL"`
 	CheckTaskInterval  int    `mapstructure:"CHECK_TASK_INTERVAL"`
 	// CreateKernelThreshold float64 `mapstructure:"KERNEL_THRESHOLD"`
-	RedisHost       string `mapstructure:"REDIS_HOST"`
-	RedisPort       string `mapstructure:"REDIS_PORT"`
-	RedisDB         string `mapstructure:"REDIS_DB"`
-	RedisKey        string `mapstructure:"REDIS_KEY"`
-	KernelNamespace string `mapstructure:"KERNEL_NAMESPACE"`
-	EGWSEndpoint    string `mapstructure:"EG_WS_ENDPOINT"`
+	RedisDSN string `mapstructure:"REDIS_DSN"`
+	// RedisPort       string `mapstructure:"REDIS_PORT"`
+	RedisDB           string `mapstructure:"REDIS_DB"`
+	RedisKey          string `mapstructure:"REDIS_KEY"`
+	KernelNamespace   string `mapstructure:"KERNEL_NAMESPACE"`
+	EGWSEndpoint      string `mapstructure:"EG_WS_ENDPOINT"`
+	KernelsSessionKey string `mapstructure:"KERNELS_SESSION_KEY"`
 
-	PGDns         string `mapstructure:"PG_DNS"`
+	DbType        string `mapstructure:"DB_TYPE"`
+	PGDSN         string `mapstructure:"PG_DSN"`
 	PGMaxPoolSize int    `mapstructure:"PG_MAX_POOL_SIZE"`
 }

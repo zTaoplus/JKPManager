@@ -10,9 +10,11 @@ import (
 
 type contextKey string
 
-const DBConnKey contextKey = "db_conn"
+const SessionClientKey contextKey = "session-client"
 
-func InitConfig() (*models.Config, error) {
+var Cfg *models.Config
+
+func InitConfig() error {
 	viper.SetEnvPrefix("JKP")
 	viper.AutomaticEnv()
 
@@ -26,31 +28,31 @@ func InitConfig() (*models.Config, error) {
 	viper.SetDefault("SERVER_PORT", "8080")
 	viper.SetDefault("ACTIVATION_INTERVAL", 1800)
 	viper.SetDefault("CHECK_TASK_INTERVAL", 120)
-	viper.SetDefault("REDIS_HOST", "127.0.0.1")
-	viper.SetDefault("REDIS_PORT", "6379")
-	viper.SetDefault("REDIS_DB", "0")
+	viper.SetDefault("REDIS_DSN", "redis://127.0.0.1:6379")
 	viper.SetDefault("REDIS_KEY", "jupyter:kernels:idle")
 
-	viper.SetDefault("PG_DNS", "postgresql://postgres:zjuici@127.0.0.1:5432/postgres?search_path=public")
+	viper.SetDefault("KERNELS_SESSION_KEY", "jupyter:kernels:sessions")
+
+	viper.SetDefault("DB_TYPE", "redis")
+
+	viper.SetDefault("PG_DSN", "postgresql://postgres:zjuici@127.0.0.1:5432/postgres?search_path=public")
 	viper.SetDefault("PG_MAX_POOL_SIZE", "20")
 
-	var cfg models.Config
-
-	err := viper.Unmarshal(&cfg)
+	err := viper.Unmarshal(&Cfg)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var egWsEndpoint string
 
-	if strings.HasPrefix(cfg.EGEndpoint, "http://") {
-		egWsEndpoint = strings.Replace(cfg.EGEndpoint, "http://", "ws://", 1)
-	} else if strings.HasPrefix(cfg.EGEndpoint, "https://") {
-		egWsEndpoint = strings.Replace(cfg.EGEndpoint, "https://", "wss://", 1)
+	if strings.HasPrefix(Cfg.EGEndpoint, "http://") {
+		egWsEndpoint = strings.Replace(Cfg.EGEndpoint, "http://", "ws://", 1)
+	} else if strings.HasPrefix(Cfg.EGEndpoint, "https://") {
+		egWsEndpoint = strings.Replace(Cfg.EGEndpoint, "https://", "wss://", 1)
 	} else {
-		log.Printf("invalid protocol endpoint：%v", cfg.EGEndpoint)
+		log.Printf("invalid protocol endpoint：%v", Cfg.EGEndpoint)
 		panic("cannot parse egEndpoint to egWsEndpoint")
 	}
 
-	cfg.EGWSEndpoint = egWsEndpoint
-	return &cfg, nil
+	Cfg.EGWSEndpoint = egWsEndpoint
+	return nil
 }

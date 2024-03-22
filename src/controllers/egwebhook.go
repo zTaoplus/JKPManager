@@ -2,38 +2,28 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"zjuici.com/tablegpt/jkpmanager/src/common"
-	"zjuici.com/tablegpt/jkpmanager/src/models"
+	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
 func GetKernelsHandler(w http.ResponseWriter, r *http.Request) {
+
 	w.Header().Set("Content-Type", "application/json")
-	conn, ok := r.Context().Value(common.DBConnKey).(*pgxpool.Conn)
+	sessionClient, ok := r.Context().Value(common.SessionClientKey).(storage.SessionClient)
 	if !ok {
 		http.Error(w, "Failed to get database connection", http.StatusInternalServerError)
 		return
 	}
-	var session models.Session
-	var sessionList []models.Session
-
-	rows, err := conn.Query(r.Context(), "select * from sessions;")
+	sessionList, err := sessionClient.GetSessions()
 	if err != nil {
-		log.Println("Cannot get the kernels", err)
-	}
-
-	for rows.Next() {
-		rows.Scan(&session.ID, &session.KernelInfo)
-
-		sessionList = append(sessionList, session)
+		log.Println("Cannot get session lists: ", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	res, err := json.Marshal(sessionList)
@@ -53,18 +43,18 @@ func GetKernelByIdHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to get kernelId", http.StatusInternalServerError)
 		return
 	}
-	conn, ok := r.Context().Value(common.DBConnKey).(*pgxpool.Conn)
+
+	sessionClient, ok := r.Context().Value(common.SessionClientKey).(storage.SessionClient)
 
 	if !ok {
 		http.Error(w, "Failed to get database connection", http.StatusInternalServerError)
 		return
 	}
-	var session models.Session
+	session, err := sessionClient.GetSessionByID(kernelId)
 
-	err := conn.QueryRow(r.Context(), "select * from sessions where id=$1;", kernelId).Scan(&session.ID, &session.KernelInfo)
 	if err != nil {
-		log.Println("Cannot get the kernel "+kernelId, err)
-		http.Error(w, "Cannot get the kernel: "+kernelId, http.StatusNotFound)
+		log.Printf("Failed to get session by id: %v", kernelId)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -94,26 +84,15 @@ func DeleteKernelsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	conn, ok := r.Context().Value(common.DBConnKey).(*pgxpool.Conn)
+	sessionClient, ok := r.Context().Value(common.SessionClientKey).(storage.SessionClient)
+
 	if !ok {
 		http.Error(w, "Failed to get database connection", http.StatusInternalServerError)
 		return
 	}
-	placeholders := make([]string, len(kernelIDs))
-	for i := range placeholders {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
-	}
-
-	query := fmt.Sprintf("DELETE FROM sessions WHERE id IN (%s)", strings.Join(placeholders, ","))
-
-	args := make([]interface{}, len(kernelIDs))
-	for i, id := range kernelIDs {
-		args[i] = id
-	}
-
-	_, err = conn.Exec(r.Context(), query, args...)
+	_, err = sessionClient.DeleteSessionByIDS(kernelIDs)
 	if err != nil {
-		log.Println("Failed to delete kernels: ", err)
+		log.Println("Failed to delete session: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -139,21 +118,16 @@ func PostKernelByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	kernelInfoJSON := pgtype.JSONB{
-		Bytes:  body,
-		Status: pgtype.Present,
-	}
-
-	conn, ok := r.Context().Value(common.DBConnKey).(*pgxpool.Conn)
+	sessionClient, ok := r.Context().Value(common.SessionClientKey).(storage.SessionClient)
 
 	if !ok {
 		http.Error(w, "Failed to get database connection", http.StatusInternalServerError)
 		return
 	}
 
-	_, err = conn.Exec(r.Context(), "INSERT INTO sessions (id, kernel_info) VALUES ($1, $2);", kernelId, kernelInfoJSON)
+	err = sessionClient.SaveSession(kernelId, body)
 	if err != nil {
-		log.Println("Failed to insert kernel: ", err)
+		log.Println("Failed to save session: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

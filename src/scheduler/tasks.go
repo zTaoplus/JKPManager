@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,7 +64,7 @@ func NewTaskClient(cfg *models.Config) *TaskClient {
 		creatingKernelCount:   NewCreatingKernelCount(),
 		done:                  make(chan struct{}),
 		httpClient:            common.NewHTTPClient(cfg.EGEndpoint),
-		redisClient:           storage.NewRedisClient(cfg.RedisHost, cfg.RedisPort),
+		redisClient:           storage.GetRedisClient(),
 	}
 }
 
@@ -71,6 +72,36 @@ func (t *TaskClient) Start() {
 	go t.startKernelsLoop()
 	go t.activateKernelsLoop()
 	go t.checkAndCreateKernelsLoop()
+}
+
+func (t *TaskClient) InitKernels() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// check the
+	storedKernelsLen, err := t.redisClient.Client.LLen(ctx, t.cfg.RedisKey).Result()
+
+	if err != nil {
+		log.Panicf("Cannot get the kernel count from redis: %v", err)
+	}
+
+	log.Printf("Existing Pending Kernel Count: %v, Max Pending Kernel Count: %v", storedKernelsLen, t.cfg.MaxPendingKernels)
+
+	needCreateKernelCount := t.cfg.MaxPendingKernels - int(storedKernelsLen)
+	if needCreateKernelCount < 0 {
+		log.Println("need to delete :", -needCreateKernelCount)
+		t.DeleteKernelByCount(-needCreateKernelCount)
+
+		needCreateKernelCount = 0
+	}
+
+	// starting kernel create task
+	log.Println("needCreateKernelCount:", needCreateKernelCount)
+	err = t.StartKernels(needCreateKernelCount)
+	if err != nil {
+		log.Panicln("Cannot create kernels:", err)
+	}
+
 }
 
 func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
@@ -83,6 +114,7 @@ func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
 	})
 	if err != nil {
 		log.Println("Cannot marshal the kernelVolumeMounts")
+		return err
 	}
 	kernelVolumes, err := json.Marshal([]map[string]interface{}{
 		{"name": "shared-vol",
@@ -95,6 +127,7 @@ func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
 
 	if err != nil {
 		log.Println("Cannot marshal the kernelVolumes")
+		return err
 	}
 
 	data := map[string]interface{}{
@@ -116,22 +149,32 @@ func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
 }
 
 func (t *TaskClient) ActivateKernels() error {
+	log.Printf("Start the scheduled task KernelActivator, activate at intervals of %v seconds.", t.cfg.ActivationInterval)
 
-	kernelsJSON, err := t.redisClient.LRange(t.cfg.RedisKey, 0, -1)
+	ticker := time.NewTicker(time.Duration(t.cfg.ActivationInterval) * time.Second)
 
-	if err != nil {
-		log.Printf("Error when LRange redis: %v", err)
-		return err
-	}
+	for range ticker.C {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
 
-	for _, kernelStr := range kernelsJSON {
-		var kernel models.KernelInfo
-		err := json.Unmarshal([]byte(kernelStr), &kernel)
+		kernelsJSON, err := t.redisClient.Client.LRange(ctx, t.cfg.RedisKey, 0, -1).Result()
+
 		if err != nil {
-			fmt.Println("Failed to unmarshal kernel JSON:", err)
-			continue
+			log.Printf("Error when LRange redis: %v", err)
+			return err
 		}
-		t.toActivateKernelsChan <- kernel.ID
+
+		for _, kernelStr := range kernelsJSON {
+			var kernel models.KernelInfo
+			err := json.Unmarshal([]byte(kernelStr), &kernel)
+			if err != nil {
+				fmt.Println("Failed to unmarshal kernel JSON:", err)
+				continue
+			}
+			t.toActivateKernelsChan <- kernel.ID
+		}
+
+		return nil
 	}
 
 	return nil
@@ -187,9 +230,12 @@ func (t *TaskClient) checkAndCreateKernelsLoop() {
 }
 
 func (t *TaskClient) checkAndCreateKernels() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	log.Println("Staring Check And create Kernels")
 
-	kernelsInRedis, err := t.redisClient.LLen(t.cfg.RedisKey)
+	kernelsInRedis, err := t.redisClient.Client.LLen(ctx, t.cfg.RedisKey).Result()
 	if err != nil {
 		log.Printf("[TASK:checkAndCreateKernels] Error when getting Redis list length: %v", err)
 		return
@@ -214,6 +260,7 @@ func (t *TaskClient) checkAndCreateKernels() {
 }
 
 func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
+
 	t.creatingKernelCount.Increment()
 	defer t.creatingKernelCount.Decrement()
 
@@ -259,7 +306,6 @@ func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
 
 	log.Println("Created kernel:", kernelInfo)
 
-	// TODO: CREATED kernel then pre activate
 	_, err = t.httpClient.Get("/api/kernels/" + kernelInfo.ID)
 
 	if err != nil {
@@ -273,7 +319,10 @@ func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
 		return err
 	}
 
-	err = t.redisClient.LPush(t.cfg.RedisKey, string(kernelJSON))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = t.redisClient.Client.LPush(ctx, t.cfg.RedisKey, string(kernelJSON)).Err()
 	if err != nil {
 		// panic("Cannot LPush kernelInfo!!!")
 		log.Println("Cannot LPush kernelInfo")
@@ -345,8 +394,11 @@ func (t *TaskClient) deleteKernelByKernelId(kernelId string) error {
 func (t *TaskClient) DeleteKernelByCount(needDeleteCount int) error {
 
 	for i := 0; i < needDeleteCount; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
 		var kernel models.KernelInfo
-		kernelInfo, err := t.redisClient.RPop(t.cfg.RedisKey)
+		kernelInfo, err := t.redisClient.Client.RPop(ctx, t.cfg.RedisKey).Result()
 		if err != nil {
 			continue
 		}
