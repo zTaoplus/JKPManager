@@ -140,6 +140,9 @@ func (t *TaskClient) ExistingKernelsDiagnostics() {
 			}
 
 			err = t.redisClient.Client.LPush(ctx, tmpKey, string(kJson)).Err()
+			// should activate the kernel
+			t.toActivateKernelsChan <- k.ID
+
 			if err != nil {
 				log.Printf("Cannot delete the kernel id:%v from redis,err:%v", k, err)
 				continue
