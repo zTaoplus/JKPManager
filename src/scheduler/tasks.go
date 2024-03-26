@@ -74,11 +74,76 @@ func (t *TaskClient) Start() {
 	go t.checkAndCreateKernelsLoop()
 }
 
-func (t *TaskClient) InitKernels() {
+func (t *TaskClient) ExistingKernelsDiagnostics() {
+	// Currently detecting in a single instance manner
+	// I will update the distributed detecting mode  if necessary.
+	log.Println("Checking Existing Kernels Healthy")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// check the
+	// get the all kernels
+	// only check the this time saved kernels
+	result, err := t.redisClient.Client.LRange(ctx, t.cfg.RedisKey, 0, -1).Result()
+	if err != nil {
+		log.Println("Cannot Get the kernels from redis:", err)
+		return
+	}
+
+	var kernelInRedis []string
+
+	for _, kernelStr := range result {
+		var kernel *models.KernelInfo
+		err := json.Unmarshal([]byte(kernelStr), &kernel)
+		if err != nil {
+			fmt.Println("Failed to unmarshal kernel JSON:", err)
+			continue
+		}
+		kernelInRedis = append(kernelInRedis, kernel.ID)
+	}
+
+	resp, err := t.httpClient.Get("/api/kernels")
+	if err != nil {
+		log.Println("Cannot get the kernels from EG:", err)
+		return
+	}
+	kernelInEGMap := make(map[string]bool)
+
+	// make a map
+	var respStruct []*models.KernelInfo
+
+	err = json.Unmarshal(resp, &respStruct)
+	if err != nil {
+		log.Println("Cannot Unmarshal the kernels from EG resp:", err)
+		return
+	}
+
+	for _, kernelInfo := range respStruct {
+
+		kernelInEGMap[kernelInfo.ID] = true
+	}
+
+	// if redis in kernel but not in the eg kernel records. do lrem to delete the kernel
+	for _, k := range kernelInRedis {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if _, found := kernelInEGMap[k]; !found {
+			err := t.redisClient.Client.LRem(ctx, t.cfg.RedisKey, 0, k).Err()
+			if err != nil {
+				log.Printf("Cannot delete the kernel id:%v from redis,err:%v", k, err)
+				continue
+			}
+		}
+	}
+
+}
+
+func (t *TaskClient) InitKernels() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	// first check the kernels healthy
+	t.ExistingKernelsDiagnostics()
+
+	// then check count and init
 	storedKernelsLen, err := t.redisClient.Client.LLen(ctx, t.cfg.RedisKey).Result()
 
 	if err != nil {
@@ -133,6 +198,7 @@ func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
 	data := map[string]interface{}{
 		"name": "python_kubernetes",
 		"env": map[string]string{
+			"KERNEL_USERNAME":      t.cfg.KernelUserName,
 			"KERNEL_NAMESPACE":     t.cfg.KernelNamespace,
 			"KERNEL_WORKING_DIR":   t.cfg.WorkingDir,
 			"KERNEL_VOLUME_MOUNTS": string(kernelVolumeMounts),
@@ -340,6 +406,7 @@ func (t *TaskClient) activateKernel(kernelId string) error {
 	wsClient := common.NewWebSocketClient(wsUrl)
 	defer wsClient.Close()
 
+	// TODO: remove this code， because the eg is wonderful now ^-^..
 	for i := 0; i < 3; i++ {
 		err := wsClient.Activate()
 

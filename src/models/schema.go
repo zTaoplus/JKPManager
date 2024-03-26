@@ -24,6 +24,7 @@ type Config struct {
 	NFSMountPath       string `mapstructure:"NFS_MOUNT_PATH"`
 	WorkingDir         string `mapstructure:"WORKING_DIR"`
 	KernelImage        string `mapstructure:"KERNEL_IMAGE"`
+	KernelUserName     string `mapstructure:"KERNEL_USER_NAME"`
 	ServerPort         string `mapstructure:"SERVER_PORT"`
 	ActivationInterval int    `mapstructure:"ACTIVATION_INTERVAL"`
 	CheckTaskInterval  int    `mapstructure:"CHECK_TASK_INTERVAL"`

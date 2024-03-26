@@ -18,9 +18,6 @@ func PopKernelHandler(cfg *models.Config, taskClient *scheduler.TaskClient) http
 	return func(w http.ResponseWriter, r *http.Request) {
 		redisClient := storage.GetRedisClient()
 
-		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-		defer cancel()
-
 		w.Header().Set("Content-Type", "application/json")
 
 		var kernelInfo string
@@ -28,6 +25,9 @@ func PopKernelHandler(cfg *models.Config, taskClient *scheduler.TaskClient) http
 		httpClient := common.NewHTTPClient(cfg.EGEndpoint)
 
 		for {
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			defer cancel()
+
 			poppedKernels, err := redisClient.Client.BRPop(ctx, 10*time.Second, cfg.RedisKey).Result()
 
 			if err != nil {
@@ -35,6 +35,7 @@ func PopKernelHandler(cfg *models.Config, taskClient *scheduler.TaskClient) http
 				http.Error(w, "Cannot pop the kernel", http.StatusInternalServerError)
 				return
 			}
+
 			// if popped, start 1 kernels
 			log.Println("Popped 1 kernel,start create 1 kernel task")
 			taskClient.StartKernels(1)

@@ -14,19 +14,6 @@ import (
 	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
-// logging middleware
-
-// func loggingMiddleware(next http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		start := time.Now()
-// 		log.Printf("Started %s %s", r.Method, r.URL.Path,r.ContentLength,r.Method,r.)
-
-// 		next.ServeHTTP(w, r)
-
-// 		log.Printf("Completed in %v", time.Since(start))
-// 	})
-// }
-
 func sessionClientMiddleware(client storage.SessionClient) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
