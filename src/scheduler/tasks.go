@@ -15,6 +15,7 @@ import (
 	"zjuici.com/tablegpt/jkpmanager/src/storage"
 )
 
+// make it to redis, implement the distributed lock
 type CreatingKernelCount struct {
 	creatingCount int
 	mu            sync.Mutex
@@ -75,21 +76,25 @@ func (t *TaskClient) Start() {
 }
 
 func (t *TaskClient) ExistingKernelsDiagnostics() {
-	// Currently detecting in a single instance manner
-	// I will update the distributed detecting mode  if necessary.
+
 	log.Println("Checking Existing Kernels Healthy")
+	tmpKey := "tmp:kernels:idle"
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// get the all kernels
-	// only check the this time saved kernels
+	err := t.redisClient.Client.Del(ctx, tmpKey).Err()
+	if err != nil {
+		log.Panicln("Cannot delete tmp key from redis:", err)
+
+	}
+
 	result, err := t.redisClient.Client.LRange(ctx, t.cfg.RedisKey, 0, -1).Result()
 	if err != nil {
 		log.Println("Cannot Get the kernels from redis:", err)
 		return
 	}
 
-	var kernelInRedis []string
+	var kernelInRedis []*models.KernelInfo
 
 	for _, kernelStr := range result {
 		var kernel *models.KernelInfo
@@ -98,7 +103,7 @@ func (t *TaskClient) ExistingKernelsDiagnostics() {
 			fmt.Println("Failed to unmarshal kernel JSON:", err)
 			continue
 		}
-		kernelInRedis = append(kernelInRedis, kernel.ID)
+		kernelInRedis = append(kernelInRedis, kernel)
 	}
 
 	resp, err := t.httpClient.Get("/api/kernels")
@@ -108,7 +113,6 @@ func (t *TaskClient) ExistingKernelsDiagnostics() {
 	}
 	kernelInEGMap := make(map[string]bool)
 
-	// make a map
 	var respStruct []*models.KernelInfo
 
 	err = json.Unmarshal(resp, &respStruct)
@@ -126,12 +130,46 @@ func (t *TaskClient) ExistingKernelsDiagnostics() {
 	for _, k := range kernelInRedis {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if _, found := kernelInEGMap[k]; !found {
-			err := t.redisClient.Client.LRem(ctx, t.cfg.RedisKey, 0, k).Err()
+		if _, found := kernelInEGMap[k.ID]; found {
+
+			// result
+			kJson, err := json.Marshal(k)
+			if err != nil {
+				log.Println("Failed to marshal kernel JSON:", err)
+				continue
+			}
+
+			err = t.redisClient.Client.LPush(ctx, tmpKey, string(kJson)).Err()
 			if err != nil {
 				log.Printf("Cannot delete the kernel id:%v from redis,err:%v", k, err)
 				continue
 			}
+		}
+	}
+
+	// rename the tmp key to real key
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tmpKernelsLen, err := t.redisClient.Client.LLen(ctx, tmpKey).Result()
+	if err != nil {
+		log.Println("Cannot get the kernels count from redis:", err)
+		tmpKernelsLen = 0
+	}
+
+	if tmpKernelsLen == 0 {
+		log.Println("No kernels is healthy, delete the kernels key from redis")
+
+		err = t.redisClient.Client.Del(ctx, t.cfg.RedisKey).Err()
+		if err != nil {
+			log.Printf("Cannot delete the kernels key %v from redis: %v", t.cfg.RedisKey, err)
+		}
+
+	} else {
+		log.Printf("Updated healthy kernels,Now rename the tmp key:%v to real key:%v", tmpKey, t.cfg.RedisKey)
+		err = t.redisClient.Client.Rename(ctx, tmpKey, t.cfg.RedisKey).Err()
+		if err != nil {
+			log.Panicln("cannot rename tmp key to new key!!!!,start up service failed", err)
 		}
 	}
 
