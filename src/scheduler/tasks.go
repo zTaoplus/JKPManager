@@ -252,20 +252,21 @@ func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
 	return nil
 }
 
-func (t *TaskClient) ActivateKernels() error {
+func (t *TaskClient) ActivateKernels() {
 	log.Printf("Start the scheduled task KernelActivator, activate at intervals of %v seconds.", t.cfg.ActivationInterval)
 
 	ticker := time.NewTicker(time.Duration(t.cfg.ActivationInterval) * time.Second)
 
 	for range ticker.C {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
 
 		kernelsJSON, err := t.redisClient.Client.LRange(ctx, t.cfg.RedisKey, 0, -1).Result()
 
+		cancel()
+
 		if err != nil {
 			log.Printf("Error when LRange redis: %v", err)
-			return err
+			continue
 		}
 
 		for _, kernelStr := range kernelsJSON {
@@ -278,10 +279,8 @@ func (t *TaskClient) ActivateKernels() error {
 			t.toActivateKernelsChan <- kernel.ID
 		}
 
-		return nil
 	}
 
-	return nil
 }
 
 func (t *TaskClient) startKernelsLoop() {
