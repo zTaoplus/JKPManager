@@ -24,24 +24,10 @@ func sessionClientMiddleware(client storage.SessionClient) mux.MiddlewareFunc {
 	}
 }
 
-func main() {
-	// init some config from env
-	err := common.InitConfig()
-	if err != nil {
-		log.Panicf("cannot load config from env using viper, msg: %v", err)
-	}
-
-	// make global context?
-
-	// init router by mux
-	r := mux.NewRouter()
-
-	// init session client
+func egWebHookRouter(r *mux.Router) {
 	var client storage.SessionClient
-	err = storage.InitRedisClient()
-	if err != nil {
-		log.Panicln("Cannot init redis Client")
-	}
+
+	var err error
 
 	switch common.Cfg.DbType {
 	case "postgres":
@@ -69,6 +55,36 @@ func main() {
 		})
 	}))
 
+	r.HandleFunc("/api/kernels/sessions/", controllers.GetKernelsHandler).Methods(http.MethodGet)                // get kernels
+	r.HandleFunc("/api/kernels/sessions", controllers.GetKernelsHandler).Methods(http.MethodGet)                 // get kernels
+	r.HandleFunc("/api/kernels/sessions/{kernelId}", controllers.GetKernelByIdHandler).Methods(http.MethodGet)   // get kernel about kernel id
+	r.HandleFunc("/api/kernels/sessions/{kernelId}", controllers.PostKernelByIdHandler).Methods(http.MethodPost) // save kernels
+	r.HandleFunc("/api/kernels/sessions/", controllers.DeleteKernelsHandler).Methods(http.MethodDelete)          // delete kernels by ids
+	r.HandleFunc("/api/kernels/sessions", controllers.DeleteKernelsHandler).Methods(http.MethodDelete)           // delete kernels by ids
+}
+
+func main() {
+	// init some config from env
+	err := common.InitConfig()
+	if err != nil {
+		log.Panicf("cannot load config from env using viper, msg: %v", err)
+	}
+	// init redis client
+
+	err = storage.InitRedisClient()
+	if err != nil {
+		log.Panicln("Cannot init redis Client")
+	}
+
+	// init router by mux
+	r := mux.NewRouter()
+
+	// eg sessions enabled
+	if common.Cfg.EGWebhookEnabled {
+		log.Println("EG Webhook Enabled")
+		egWebHookRouter(r)
+	}
+
 	// Opening the strict slash will prevent the delete method from saving the request body.
 	// r.StrictSlash(true)
 
@@ -81,15 +97,7 @@ func main() {
 		log.Println("Staring http server")
 		http.Handle("/", r)
 		// eg kernels management
-		r.HandleFunc("/api/kernels/pop/", controllers.PopKernelHandler(common.Cfg, taskClient)).Methods("POST")
-
-		// eg sessions
-		r.HandleFunc("/api/kernels/sessions/", controllers.GetKernelsHandler).Methods(http.MethodGet)                // get kernels
-		r.HandleFunc("/api/kernels/sessions", controllers.GetKernelsHandler).Methods(http.MethodGet)                 // get kernels
-		r.HandleFunc("/api/kernels/sessions/{kernelId}", controllers.GetKernelByIdHandler).Methods(http.MethodGet)   // get kernel about kernel id
-		r.HandleFunc("/api/kernels/sessions/{kernelId}", controllers.PostKernelByIdHandler).Methods(http.MethodPost) // save kernels
-		r.HandleFunc("/api/kernels/sessions/", controllers.DeleteKernelsHandler).Methods(http.MethodDelete)          // delete kernels by ids
-		r.HandleFunc("/api/kernels/sessions", controllers.DeleteKernelsHandler).Methods(http.MethodDelete)           // delete kernels by ids
+		r.HandleFunc("/api/kernels/pop/", controllers.PopKernelHandler(common.Cfg, taskClient)).Methods(http.MethodPost)
 		loggedRouter := handlers.LoggingHandler(os.Stdout, r)
 
 		if err := http.ListenAndServe(":"+common.Cfg.ServerPort, loggedRouter); err != nil {

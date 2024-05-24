@@ -18,26 +18,41 @@ type Session struct {
 }
 
 type Config struct {
-	EGEndpoint         string `mapstructure:"EG_ENDPOINT"`
-	MaxPendingKernels  int    `mapstructure:"MAX_PENDING_KERNELS"`
-	NFSVolumeServer    string `mapstructure:"NFS_VOLUME_SERVER"`
-	NFSMountPath       string `mapstructure:"NFS_MOUNT_PATH"`
-	WorkingDir         string `mapstructure:"WORKING_DIR"`
-	KernelImage        string `mapstructure:"KERNEL_IMAGE"`
-	KernelUserName     string `mapstructure:"KERNEL_USER_NAME"`
-	ServerPort         string `mapstructure:"SERVER_PORT"`
-	ActivationInterval int    `mapstructure:"ACTIVATION_INTERVAL"`
-	CheckTaskInterval  int    `mapstructure:"CHECK_TASK_INTERVAL"`
-	// CreateKernelThreshold float64 `mapstructure:"KERNEL_THRESHOLD"`
-	RedisDSN string `mapstructure:"REDIS_DSN"`
-	// RedisPort       string `mapstructure:"REDIS_PORT"`
+	// config about jupyter enterprise gateway
+	EGEndpoint       string `mapstructure:"EG_ENDPOINT"`
+	EGWebhookEnabled bool   `mapstructure:"EG_WEBHOOK_ENABLED"`
+	EGWSEndpoint     string `mapstructure:"EG_WS_ENDPOINT"`
+
+	// config about kernel create
+	KernelName               string `mapstructure:"KERNEL_NAME"`
+	KernelVolumeMounts       string `mapstructure:"KERNEL_VOLUME_MOUNTS"`
+	KernelVolumes            string `mapstructure:"KERNEL_VOLUMES"`
+	KernelStartupScriptsPath string `mapstructure:"KERNEL_STARTUP_SCRIPTS_PATH"`
+	KernelWorkingDir         string `mapstructure:"KERNEL_WORKING_DIR"`
+	KernelImage              string `mapstructure:"KERNEL_IMAGE"`
+	KernelUserName           string `mapstructure:"KERNEL_USER_NAME"`
+	KernelNamespace          string `mapstructure:"KERNEL_NAMESPACE"`
+
+	// should add the config of the volume settings?
+
+	// config about server
+	ServerPort string `mapstructure:"SERVER_PORT"`
+
+	// config about kernels operations
+	MaxPendingKernels  int `mapstructure:"MAX_PENDING_KERNELS"`
+	ActivationInterval int `mapstructure:"ACTIVATION_INTERVAL"`
+	CheckTaskInterval  int `mapstructure:"CHECK_TASK_INTERVAL"`
+
+	// db type to store sessions
+	DbType string `mapstructure:"DB_TYPE"`
+
+	// about redis storage
+	RedisDSN          string `mapstructure:"REDIS_DSN"`
 	RedisDB           string `mapstructure:"REDIS_DB"`
 	RedisKey          string `mapstructure:"REDIS_KEY"`
-	KernelNamespace   string `mapstructure:"KERNEL_NAMESPACE"`
-	EGWSEndpoint      string `mapstructure:"EG_WS_ENDPOINT"`
 	KernelsSessionKey string `mapstructure:"KERNELS_SESSION_KEY"`
 
-	DbType        string `mapstructure:"DB_TYPE"`
+	// about postgresql
 	PGDSN         string `mapstructure:"PG_DSN"`
 	PGMaxPoolSize int    `mapstructure:"PG_MAX_POOL_SIZE"`
 }

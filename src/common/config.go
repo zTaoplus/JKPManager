@@ -2,6 +2,7 @@ package common
 
 import (
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -12,24 +13,34 @@ type contextKey string
 
 const SessionClientKey contextKey = "session-client"
 
-var Cfg *models.Config
+var Cfg = &models.Config{}
 
 func InitConfig() error {
 	viper.SetEnvPrefix("JKP")
 	viper.AutomaticEnv()
+	// FIXME:Some config settings have default values that are not necessary, but without them, viper cannot read them.
+	// server config
+	viper.SetDefault("SERVER_PORT", "8080")
 
-	// main config
+	// EG config
 	viper.SetDefault("EG_ENDPOINT", "http://127.0.0.1:8888")
-	viper.SetDefault("MAX_PENDING_KERNELS", 10)
-	viper.SetDefault("NFS_VOLUME_SERVER", "127.0.0.1")
-	viper.SetDefault("NFS_MOUNT_PATH", "/data/")
-	viper.SetDefault("WORKING_DIR", "/mnt/shared")
+	viper.SetDefault("EG_WEBHOOK_ENABLED", false)
+
+	// kernel config
+	viper.SetDefault("KERNEL_VOLUME_MOUNTS", "")
+	viper.SetDefault("KERNEL_VOLUMES", "")
+	viper.SetDefault("KERNEL_STARTUP_SCRIPTS_PATH", "")
+	viper.SetDefault("KERNEL_NAME", "python_kubernetes")
 	viper.SetDefault("KERNEL_IMAGE", "elyra/kernel-py:3.2.2")
 	viper.SetDefault("KERNEL_NAMESPACE", "default")
 	viper.SetDefault("KERNEL_USER_NAME", "jovyan")
-	viper.SetDefault("SERVER_PORT", "8080")
+
+	// task config
+	viper.SetDefault("MAX_PENDING_KERNELS", 10)
 	viper.SetDefault("ACTIVATION_INTERVAL", 1800)
 	viper.SetDefault("CHECK_TASK_INTERVAL", 120)
+
+	// redis config
 	viper.SetDefault("REDIS_DSN", "redis://127.0.0.1:6379")
 	viper.SetDefault("REDIS_KEY", "jupyter:kernels:idle")
 
@@ -39,10 +50,20 @@ func InitConfig() error {
 	viper.SetDefault("PG_DSN", "postgresql://postgres:zjuici@127.0.0.1:5432/postgres?search_path=public")
 	viper.SetDefault("PG_MAX_POOL_SIZE", "20")
 
-	err := viper.Unmarshal(&Cfg)
+	err := viper.Unmarshal(Cfg)
 	if err != nil {
 		return err
 	}
+
+	// Parse EG_WEBHOOK_ENABLED environment variable
+	egWebhookStr := viper.GetString("EG_WEBHOOK_ENABLED")
+	egWebhookEnabled, err := strconv.ParseBool(egWebhookStr)
+	if err != nil {
+		Cfg.EGWebhookEnabled = false
+	} else {
+		Cfg.EGWebhookEnabled = egWebhookEnabled
+	}
+
 	var egWsEndpoint string
 
 	if strings.HasPrefix(Cfg.EGEndpoint, "http://") {

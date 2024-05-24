@@ -16,6 +16,7 @@ import (
 )
 
 // make it to redis, implement the distributed lock
+// TODO: So, should I start working on this now?
 type CreatingKernelCount struct {
 	creatingCount int
 	mu            sync.Mutex
@@ -212,39 +213,16 @@ func (t *TaskClient) InitKernels() {
 
 func (t *TaskClient) StartKernels(needCreateKernelCount int) error {
 
-	kernelVolumeMounts, err := json.Marshal([]map[string]string{
-		{
-			"name":      "shared-vol",
-			"mountPath": t.cfg.WorkingDir,
-		},
-	})
-	if err != nil {
-		log.Println("Cannot marshal the kernelVolumeMounts")
-		return err
-	}
-	kernelVolumes, err := json.Marshal([]map[string]interface{}{
-		{"name": "shared-vol",
-			"nfs": map[string]string{
-				"server": t.cfg.NFSVolumeServer,
-				"path":   t.cfg.NFSMountPath,
-			},
-		},
-	})
-
-	if err != nil {
-		log.Println("Cannot marshal the kernelVolumes")
-		return err
-	}
-
 	data := map[string]interface{}{
-		"name": "python_kubernetes",
+		"name": t.cfg.KernelName,
 		"env": map[string]string{
-			"KERNEL_USERNAME":      t.cfg.KernelUserName,
-			"KERNEL_NAMESPACE":     t.cfg.KernelNamespace,
-			"KERNEL_WORKING_DIR":   t.cfg.WorkingDir,
-			"KERNEL_VOLUME_MOUNTS": string(kernelVolumeMounts),
-			"KERNEL_VOLUMES":       string(kernelVolumes),
-			"KERNEL_IMAGE":         t.cfg.KernelImage,
+			"KERNEL_USERNAME":             t.cfg.KernelUserName,
+			"KERNEL_NAMESPACE":            t.cfg.KernelNamespace,
+			"KERNEL_WORKING_DIR":          t.cfg.KernelWorkingDir,
+			"KERNEL_VOLUME_MOUNTS":        t.cfg.KernelVolumeMounts,
+			"KERNEL_VOLUMES":              t.cfg.KernelVolumes,
+			"KERNEL_IMAGE":                t.cfg.KernelImage,
+			"KERNEL_STARTUP_SCRIPTS_PATH": t.cfg.KernelStartupScriptsPath,
 		},
 	}
 
@@ -406,7 +384,6 @@ func (t *TaskClient) createKernel(reqBody map[string]interface{}) error {
 		break
 	}
 	if !created {
-		log.Println()
 		return errors.New("cannot create kernel after 3 times")
 	}
 
@@ -446,7 +423,6 @@ func (t *TaskClient) activateKernel(kernelId string) error {
 	wsClient := common.NewWebSocketClient(wsUrl)
 	defer wsClient.Close()
 
-	// TODO: remove this code， because the eg is wonderful now ^-^..
 	for i := 0; i < 3; i++ {
 		err := wsClient.Activate()
 
